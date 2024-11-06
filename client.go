@@ -57,6 +57,7 @@ func NewMessage(exchange, routingKey string, data interface{}) Message {
 // Client interface for a rabbitmq pub/sub client
 type Client interface {
 	// Start runs retry routine.
+	// This does not block execution.
 	// This should be called only once.
 	Start()
 
@@ -340,7 +341,7 @@ func (c *client) stopRetryLoop() {
 
 // Start implements Client.
 func (c *client) Start() {
-	c.startRetryLoop()
+	go c.startRetryLoop()
 }
 
 // Stop implements Client.
