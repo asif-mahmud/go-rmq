@@ -2,7 +2,7 @@
 
 Simple rabbitmq pub/sub client based on [https://github.com/wagslane/go-rabbitmq](https://github.com/wagslane/go-rabbitmq).
 
-# Flow
+## Flow
 
 ``` mermaid
 flowchart TB
