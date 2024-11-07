@@ -17,6 +17,9 @@ type ConnectionOptions struct {
 
 var DefaultClient Client
 
+// Init initializes rabbitmq client.
+// On success, it sets the DefaultClient to established client.
+// On failure, it exits the application instance.
 func Init(opt ConnectionOptions) {
 	conn, err := rabbitmq.NewConn(
 		opt.URL,
@@ -39,6 +42,8 @@ func Init(opt ConnectionOptions) {
 	}
 }
 
+// GetClient returns DefaultClient.
+// This should only be used after a successfull Init call.
 func GetClient() Client {
 	return DefaultClient
 }
