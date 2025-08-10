@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/rabbitmq/amqp091-go"
 	"github.com/wagslane/go-rabbitmq"
 )
 
@@ -13,6 +14,7 @@ type ConnectionOptions struct {
 	URL                        string
 	ReconnectInterval          time.Duration
 	FailedMessageRetryInterval time.Duration
+	ClientName                 string
 }
 
 var DefaultClient Client
@@ -21,6 +23,20 @@ var DefaultClient Client
 // On success, it sets the DefaultClient to established client.
 // On failure, it exits the application instance.
 func Init(opt ConnectionOptions) {
+	opts := [](func(options *rabbitmq.ConnectionOptions)){
+		rabbitmq.WithConnectionOptionsLogger(&Logger{}),
+		rabbitmq.WithConnectionOptionsReconnectInterval(opt.ReconnectInterval),
+	}
+
+	if len(opt.ClientName) > 0 {
+		props := amqp091.NewConnectionProperties()
+		props.SetClientConnectionName(opt.ClientName)
+		cfg := rabbitmq.Config{
+			Properties: props,
+		}
+		opts = append(opts, rabbitmq.WithConnectionOptionsConfig(cfg))
+	}
+
 	conn, err := rabbitmq.NewConn(
 		opt.URL,
 		rabbitmq.WithConnectionOptionsLogger(&Logger{}),
