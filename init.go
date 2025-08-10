@@ -39,8 +39,7 @@ func Init(opt ConnectionOptions) {
 
 	conn, err := rabbitmq.NewConn(
 		opt.URL,
-		rabbitmq.WithConnectionOptionsLogger(&Logger{}),
-		rabbitmq.WithConnectionOptionsReconnectInterval(opt.ReconnectInterval),
+		opts...,
 	)
 	if err != nil {
 		slog.Error(fmt.Sprintf("failed to connect to rabbitmq, error: %s", err.Error()))
