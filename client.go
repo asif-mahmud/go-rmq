@@ -229,11 +229,11 @@ func (c *client) runConsumer(ctx context.Context, opt ConsumerOption) (*rabbitmq
 	}
 
 	go consumer.Run(func(d rabbitmq.Delivery) (action rabbitmq.Action) {
-		msgCtx := ExtractTrace(ctx, d.Headers)
+		msgCtx := extractTrace(ctx, d.Headers)
 
 		var span trace.Span
 		if opt.ConsumerWithContext != nil {
-			msgCtx, span = StartConsumerSpan(msgCtx, nil, "Consume "+opt.Queue)
+			msgCtx, span = startConsumerSpan(msgCtx, nil, "Consume "+opt.Queue)
 			defer span.End()
 		}
 
@@ -357,7 +357,7 @@ func (c *client) createPublisher(ctx context.Context, exchange string, route str
 
 func (c *client) tryPublish(ctx context.Context, msg Message) error {
 	headers := make(map[string]interface{})
-	InjectTrace(ctx, headers)
+	injectTrace(ctx, headers)
 
 	c.publisersMu.Lock()
 	publisher, ok := c.publishers[msg.RoutingKey]
@@ -398,7 +398,7 @@ func (c *client) Publish(msg Message) {
 
 // PublishWithContext implements Client.
 func (c *client) PublishWithContext(ctx context.Context, msg Message) error {
-	ctx, span := StartPublisherSpan(ctx, nil, "Publish "+msg.RoutingKey)
+	ctx, span := startPublisherSpan(ctx, nil, "Publish "+msg.RoutingKey)
 	defer span.End()
 
 	err := c.tryPublish(ctx, msg)

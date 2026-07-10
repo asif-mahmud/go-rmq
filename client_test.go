@@ -13,7 +13,7 @@ import (
 )
 
 func TestMapCarrier(t *testing.T) {
-	carrier := make(MapCarrier)
+	carrier := make(mapCarrier)
 	carrier.Set("foo", "bar")
 	carrier.Set("hello", "world")
 
@@ -46,13 +46,13 @@ func TestTracePropagation(t *testing.T) {
 	defer span.End()
 
 	headers := make(map[string]interface{})
-	InjectTrace(ctx, headers)
+	injectTrace(ctx, headers)
 
 	if len(headers) == 0 {
 		t.Error("Expected headers to contain trace context metadata")
 	}
 
-	extractedCtx := ExtractTrace(context.Background(), headers)
+	extractedCtx := extractTrace(context.Background(), headers)
 	extractedSpan := trace.SpanFromContext(extractedCtx)
 
 	if !extractedSpan.SpanContext().IsValid() {
