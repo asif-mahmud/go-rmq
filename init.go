@@ -1,6 +1,7 @@
 package gormq
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -10,11 +11,15 @@ import (
 	"github.com/wagslane/go-rabbitmq"
 )
 
+const DefaultMaxFailedMessageQueueSize = 5000
+
 type ConnectionOptions struct {
 	URL                        string
 	ReconnectInterval          time.Duration
 	FailedMessageRetryInterval time.Duration
 	ClientName                 string
+	MaxFailedMessageQueueSize  int
+	LogLevel                   *slog.Level
 }
 
 var DefaultClient Client
@@ -23,8 +28,13 @@ var DefaultClient Client
 // On success, it sets the DefaultClient to established client.
 // On failure, it exits the application instance.
 func Init(opt ConnectionOptions) {
+	logLevel := slog.LevelInfo
+	if opt.LogLevel != nil {
+		logLevel = *opt.LogLevel
+	}
+
 	opts := [](func(options *rabbitmq.ConnectionOptions)){
-		rabbitmq.WithConnectionOptionsLogger(&Logger{}),
+		rabbitmq.WithConnectionOptionsLogger(&Logger{Level: logLevel}),
 		rabbitmq.WithConnectionOptionsReconnectInterval(opt.ReconnectInterval),
 	}
 
@@ -42,18 +52,25 @@ func Init(opt ConnectionOptions) {
 		opts...,
 	)
 	if err != nil {
-		slog.Error(fmt.Sprintf("failed to connect to rabbitmq, error: %s", err.Error()))
+		slog.ErrorContext(context.Background(), fmt.Sprintf("failed to connect to rabbitmq, error: %s", err.Error()))
 		os.Exit(1)
+	}
+
+	maxFailedMsgSize := opt.MaxFailedMessageQueueSize
+	if maxFailedMsgSize <= 0 {
+		maxFailedMsgSize = DefaultMaxFailedMessageQueueSize
 	}
 
 	DefaultClient = &client{
 		serverUrl:              opt.URL,
 		conn:                   conn,
 		publishers:             map[string]*rabbitmq.Publisher{},
-		consumers:              []*rabbitmq.Consumer{},
+		consumers:              map[string]*rabbitmq.Consumer{},
 		failedMsgQueue:         []Message{},
 		failedMsgRetryInterval: opt.FailedMessageRetryInterval,
-		failedMsgStopChan:      make(chan bool),
+		failedMsgStopChan:      make(chan struct{}),
+		maxFailedMsgQueueSize:  maxFailedMsgSize,
+		logLevel:               logLevel,
 	}
 }
 

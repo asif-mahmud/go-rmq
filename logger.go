@@ -11,15 +11,20 @@ import (
 	"github.com/wagslane/go-rabbitmq"
 )
 
-type Logger struct{}
+type Logger struct {
+	Level slog.Level
+}
 
 func (l *Logger) log(level slog.Level, msg string, args ...any) {
+	if level < l.Level {
+		return
+	}
 	if !slog.Default().Handler().Enabled(context.Background(), level) {
 		return
 	}
 	var pcs [1]uintptr
 	runtime.Callers(3, pcs[:]) // Callers, log, Xf (i.e Debugf)
-	r := slog.NewRecord(time.Now(), slog.LevelDebug, fmt.Sprintf(msg, args...), pcs[0])
+	r := slog.NewRecord(time.Now(), level, fmt.Sprintf(msg, args...), pcs[0])
 	slog.Default().Handler().Handle(context.Background(), r)
 }
 

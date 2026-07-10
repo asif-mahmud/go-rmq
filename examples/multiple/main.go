@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -23,13 +24,13 @@ func main() {
 	failChan := make(chan bool, 1)
 	fail := 0
 
-	gormq.GetClient().AddConsumer(gormq.ConsumerOption{
+	gormq.GetClient().AddConsumerWithContext(context.Background(), gormq.ConsumerOption{
 		Exchange:   "rmq-test-exchange",
 		RoutingKey: "rmq-test-route",
 		Queue:      "rmq-test:rmq-test-route:queue",
-		Consumer: func(d []byte) error {
+		ConsumerWithContext: func(ctx context.Context, d []byte) error {
 			failChan <- true
-			slog.Info(fmt.Sprintf("Failing: %s", string(d)))
+			slog.InfoContext(ctx, fmt.Sprintf("Failing: %s", string(d)))
 			return errors.New("failed test")
 		},
 		PrefetchCount: 1,
@@ -38,13 +39,13 @@ func main() {
 		DlqRoutingKey: "rmq-test:rmq-test-route:dlq",
 	})
 
-	gormq.GetClient().AddConsumer(gormq.ConsumerOption{
+	gormq.GetClient().AddConsumerWithContext(context.Background(), gormq.ConsumerOption{
 		Exchange:   "rmq-test-exchange",
 		RoutingKey: "rmq-test-route",
 		Queue:      "rmq-test:rmq-test-route:queue",
-		Consumer: func(d []byte) error {
+		ConsumerWithContext: func(ctx context.Context, d []byte) error {
 			successChan <- true
-			slog.Info(string(d))
+			slog.InfoContext(ctx, string(d))
 			return nil
 		},
 		PrefetchCount: 1,
@@ -74,7 +75,7 @@ func main() {
 			break
 		}
 	}
-	slog.Info(fmt.Sprintf("succeeded: %d, failed: %d", success, fail))
+	slog.InfoContext(context.Background(), fmt.Sprintf("succeeded: %d, failed: %d", success, fail))
 
 	time.Sleep(15 * time.Second)
 

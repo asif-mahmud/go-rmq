@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"time"
@@ -15,33 +16,51 @@ func main() {
 		FailedMessageRetryInterval: 1 * time.Minute,
 	})
 
-	gormq.GetClient().Start()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	gormq.GetClient().StartWithContext(ctx)
 
 	dataChan := make(chan []byte)
 
-	gormq.GetClient().AddConsumer(gormq.ConsumerOption{
+	consumerID, err := gormq.GetClient().AddConsumerWithContext(ctx, gormq.ConsumerOption{
 		Exchange:   "rmq-test-exchange",
 		RoutingKey: "rmq-test-route",
 		Queue:      "rmq-test:rmq-test-route:queue",
-		Consumer: func(d []byte) error {
+		ConsumerWithContext: func(c context.Context, d []byte) error {
 			dataChan <- d
-			slog.Info(string(d))
+			slog.InfoContext(c, string(d))
 			return nil
 		},
 		PrefetchCount: 10,
 	})
+	if err != nil {
+		slog.Error("Failed to add consumer", "error", err)
+		return
+	}
+	slog.Info("Consumer added successfully", "id", consumerID)
 
 	time.Sleep(5 * time.Second)
 
-	gormq.GetClient().
-		Publish(gormq.NewMessage(
+	err = gormq.GetClient().
+		PublishWithContext(ctx, gormq.NewMessage(
 			"rmq-test-exchange",
 			"rmq-test-route",
 			`{"success":true}`,
 		))
+	if err != nil {
+		slog.Error("Failed to publish", "error", err)
+	}
 
 	msg := <-dataChan
 	slog.Info(fmt.Sprintf("Received: %s", string(msg)))
+
+	// Close the specific consumer by its ID
+	if err := gormq.GetClient().CloseConsumerWithContext(ctx, consumerID); err != nil {
+		slog.Error("Failed to close consumer", "id", consumerID, "error", err)
+	} else {
+		slog.Info("Consumer closed successfully", "id", consumerID)
+	}
 
 	gormq.GetClient().Stop()
 }

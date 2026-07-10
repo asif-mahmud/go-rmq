@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -57,7 +58,7 @@ func main() {
 					newMsg(),
 				))
 		case <-sigChan:
-			slog.Info("Exiting")
+			slog.InfoContext(context.Background(), "Exiting")
 			gormq.GetClient().Stop()
 			return
 		}
