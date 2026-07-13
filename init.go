@@ -20,6 +20,7 @@ type ConnectionOptions struct {
 	ClientName                 string
 	MaxFailedMessageQueueSize  int
 	LogLevel                   *slog.Level
+	NetPeerName                string
 }
 
 var DefaultClient Client
@@ -61,6 +62,11 @@ func Init(opt ConnectionOptions) {
 		maxFailedMsgSize = DefaultMaxFailedMessageQueueSize
 	}
 
+	netPeerName := opt.NetPeerName
+	if netPeerName == "" {
+		netPeerName = "rabbitmq"
+	}
+
 	DefaultClient = &client{
 		serverUrl:              opt.URL,
 		conn:                   conn,
@@ -71,6 +77,7 @@ func Init(opt ConnectionOptions) {
 		failedMsgStopChan:      make(chan struct{}),
 		maxFailedMsgQueueSize:  maxFailedMsgSize,
 		logLevel:               logLevel,
+		netPeerName:            netPeerName,
 	}
 }
 

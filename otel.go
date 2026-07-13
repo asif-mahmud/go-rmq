@@ -4,10 +4,17 @@ import (
 	"context"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
 
 const tracerName = "github.com/asif-mahmud/go-rmq"
+
+const (
+	TraceMessagingSystemKey   = "messaging.system"
+	TraceNetPeerNameKey       = "net.peer.name"
+	TraceMessagingSystemValue = "rabbitmq"
+)
 
 // mapCarrier implements propagation.TextMapCarrier for map[string]interface{}
 type mapCarrier map[string]interface{}
@@ -53,17 +60,23 @@ func extractTrace(ctx context.Context, headers map[string]interface{}) context.C
 }
 
 // startConsumerSpan starts a consumer span from the extracted trace context.
-func startConsumerSpan(ctx context.Context, tracer trace.Tracer, name string) (context.Context, trace.Span) {
+func startConsumerSpan(ctx context.Context, tracer trace.Tracer, name string, extraAttrs ...attribute.KeyValue) (context.Context, trace.Span) {
 	if tracer == nil {
 		tracer = otel.Tracer(tracerName)
 	}
-	return tracer.Start(ctx, name, trace.WithSpanKind(trace.SpanKindConsumer))
+	attrs := append([]attribute.KeyValue{
+		attribute.String(TraceMessagingSystemKey, TraceMessagingSystemValue),
+	}, extraAttrs...)
+	return tracer.Start(ctx, name, trace.WithSpanKind(trace.SpanKindConsumer), trace.WithAttributes(attrs...))
 }
 
 // startPublisherSpan starts a publisher span from the trace context.
-func startPublisherSpan(ctx context.Context, tracer trace.Tracer, name string) (context.Context, trace.Span) {
+func startPublisherSpan(ctx context.Context, tracer trace.Tracer, name string, extraAttrs ...attribute.KeyValue) (context.Context, trace.Span) {
 	if tracer == nil {
 		tracer = otel.Tracer(tracerName)
 	}
-	return tracer.Start(ctx, name, trace.WithSpanKind(trace.SpanKindProducer))
+	attrs := append([]attribute.KeyValue{
+		attribute.String(TraceMessagingSystemKey, TraceMessagingSystemValue),
+	}, extraAttrs...)
+	return tracer.Start(ctx, name, trace.WithSpanKind(trace.SpanKindProducer), trace.WithAttributes(attrs...))
 }

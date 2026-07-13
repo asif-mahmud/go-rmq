@@ -12,6 +12,7 @@ import (
 
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/wagslane/go-rabbitmq"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -141,6 +142,7 @@ type client struct {
 
 	cancelRetryLoop context.CancelFunc
 	logLevel        slog.Level
+	netPeerName     string
 }
 
 func (c *client) createDlq(opt ConsumerOption) error {
@@ -233,7 +235,7 @@ func (c *client) runConsumer(ctx context.Context, opt ConsumerOption) (*rabbitmq
 
 		var span trace.Span
 		if opt.ConsumerWithContext != nil {
-			msgCtx, span = startConsumerSpan(msgCtx, nil, "Consume "+opt.Queue)
+			msgCtx, span = startConsumerSpan(msgCtx, nil, "Consume "+opt.Queue, attribute.String(TraceNetPeerNameKey, c.netPeerName))
 			defer span.End()
 		}
 
@@ -398,7 +400,7 @@ func (c *client) Publish(msg Message) {
 
 // PublishWithContext implements Client.
 func (c *client) PublishWithContext(ctx context.Context, msg Message) error {
-	ctx, span := startPublisherSpan(ctx, nil, "Publish "+msg.RoutingKey)
+	ctx, span := startPublisherSpan(ctx, nil, "Publish "+msg.RoutingKey, attribute.String(TraceNetPeerNameKey, c.netPeerName))
 	defer span.End()
 
 	err := c.tryPublish(ctx, msg)

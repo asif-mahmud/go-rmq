@@ -7,8 +7,10 @@ import (
 
 	"github.com/wagslane/go-rabbitmq"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/propagation"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -95,5 +97,57 @@ func TestConsumerTrackingRegistration(t *testing.T) {
 
 	if len(c.consumers) != 0 {
 		t.Errorf("Expected initial consumer count to be 0, got %d", len(c.consumers))
+	}
+}
+
+func TestSpanAttributes(t *testing.T) {
+	sr := tracetest.NewSpanRecorder()
+	tp := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(sr))
+	otel.SetTracerProvider(tp)
+
+	ctx := context.Background()
+	tracer := tp.Tracer(tracerName)
+
+	// Test publisher span attributes
+	_, spanPub := startPublisherSpan(ctx, tracer, "test-pub")
+	spanPub.End()
+
+	// Test consumer span attributes
+	_, spanSub := startConsumerSpan(ctx, tracer, "test-sub", attribute.String(TraceNetPeerNameKey, "custom-rabbitmq"))
+	spanSub.End()
+
+	spans := sr.Ended()
+	if len(spans) != 2 {
+		t.Fatalf("Expected 2 spans, got %d", len(spans))
+	}
+
+	// Verify publisher span attributes
+	pubAttrs := spans[0].Attributes()
+	var foundPubSys bool
+	for _, attr := range pubAttrs {
+		if attr.Key == TraceMessagingSystemKey && attr.Value.AsString() == TraceMessagingSystemValue {
+			foundPubSys = true
+		}
+	}
+	if !foundPubSys {
+		t.Error("Publisher span missing messaging.system = rabbitmq attribute")
+	}
+
+	// Verify consumer span attributes
+	subAttrs := spans[1].Attributes()
+	var foundSubSys, foundSubPeer bool
+	for _, attr := range subAttrs {
+		if attr.Key == TraceMessagingSystemKey && attr.Value.AsString() == TraceMessagingSystemValue {
+			foundSubSys = true
+		}
+		if attr.Key == TraceNetPeerNameKey && attr.Value.AsString() == "custom-rabbitmq" {
+			foundSubPeer = true
+		}
+	}
+	if !foundSubSys {
+		t.Error("Consumer span missing messaging.system = rabbitmq attribute")
+	}
+	if !foundSubPeer {
+		t.Error("Consumer span missing custom net.peer.name = custom-rabbitmq attribute")
 	}
 }
